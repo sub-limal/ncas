@@ -1,6 +1,6 @@
 # NCAS
 
-NCAS is a Python3 script who shows saved WiFi passwords registered in Windows. It is based on netsh.
+NCAS (Netsh Command Automation Script) is a Python3 script who shows saved WiFi passwords registered in Windows. It is based on netsh.
 
 #### Translation
 

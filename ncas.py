@@ -28,8 +28,7 @@ if os.path.isdir('output') == False:
 config = configparser.ConfigParser()
 config.read("config.ini", encoding='utf-8')
 def config_func():
-    global num
-    global Key
+    global num, Key, config_All_users, config_All_users_with_indentation, config_Key
     num = 0
 
     print("[" + Bright + "i" + Reset + "] - Configuration")
@@ -81,8 +80,15 @@ def config_func():
         config.write(configfile)
     print("[" + Green + "+" + Reset + "] - Deletion of the test profile")
     subprocess.run(["powershell", "netsh wlan delete profile 'AP NCAS CONFIG'", ], stdout=subprocess.DEVNULL)
-
-
+    config.read("config.ini", encoding='utf-8')
+    config_All_users = config['VARIABLES']['All users']
+    config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
+    config_Key = config['VARIABLES']['Key']
+    config_All_users += " "
+    config_All_users_with_indentation += " "
+    config_Key += " "
+    config_func.has_been_called = True
+config_func.has_been_called = False
 
 try:
     options, remainder = getopt.getopt(sys.argv[1:], 
@@ -137,30 +143,30 @@ if 1 < len(interface_list):
 
 subprocess.run(["powershell", "CHCP 1252", ], stdout=subprocess.DEVNULL)
 
+config_All_users = "Blank"
+config_All_users_with_indentation = "Blank"
+config_Key = "Blank"
+if ('--config', '') not in options:
+    try:
+        config_All_users = config['VARIABLES']['All users']
+        config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
+        config_Key = config['VARIABLES']['Key']
+        config_All_users += " "
+        config_All_users_with_indentation += " "
+        config_Key += " "
 
-try:
-    config_All_users = config['VARIABLES']['All users']
-    config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
-    config_Key = config['VARIABLES']['Key']
-    config_All_users += " "
-    config_All_users_with_indentation += " "
-    config_Key += " "
-
-except KeyError:
-    config_All_users = "Blank"
-    config_All_users_with_indentation = "Blank"
-    config_Key = "Blank"
-    if len(sys.argv) == 1:
-        print("""It seems that the "config.ini" file is nonexistent.""")
-        config_func()
-        sys.exit(0)
-    for opt, arg in options:
-        if opt == "--config":
-            pass
-        else:
-            print("""It seems that the "config.ini" file is nonexistent""")
+    except KeyError:
+        if len(sys.argv) == 1:
+            print("""It seems that the "config.ini" file is nonexistent.""")
             config_func()
+        for opt, arg in options:
+            if opt == "--config":
+                pass
+            else:
+                print("""It seems that the "config.ini" file is nonexistent""")
+                config_func()
 
+config.read("config.ini", encoding='utf-8')
 
 get_ssid = subprocess.check_output(["powershell.exe", 'netsh wlan show profile | Select-String "{}"'.format(config_All_users),], text=True).strip()
 a = get_ssid.replace(config_All_users_with_indentation, "")
@@ -179,18 +185,22 @@ table_data = [ssid_list, pwd_list]
 dicti = dict(zip(ssid_list, pwd_list))
 df = pd.DataFrame([dicti])
 df = (df.T)
+
 if ssid_list == ['']:
-    print("""An error took place.This may be due to the fact that:
-          
-          - The computer has never connected to a Wi-Fi network.
-            In this case only the import will walk.
-          
-          - There is no wireless network interface available.
-          
-          - There is an error in the configuration file.
-            In this case please relaunch the configuration.
-            With the command "ncas.exe --config".
-          """) 
+    if ('--config', '') in options or config_func.has_been_called == True:
+        pass
+    else:
+        print("""An error took place. This may be due to the fact that:
+
+              - The computer has never connected to a Wi-Fi network.
+                In this case only the import will walk.
+
+              - There is no wireless network interface available.
+
+              - There is an error in the configuration file.
+                In this case please relaunch the configuration.
+                With the command "ncas.exe --config".
+              """) 
 
 noclear = False
 c = False
@@ -221,22 +231,17 @@ def clear():
     else:
         print()
 def nocolor():
-    global c
-    global num
-    global Green
-    global Bright
+    global c, num, Green, Bright
     c = True
     num = 0
     Green = Reset
     Bright = Reset
 def noclear_func():
-    global num
-    global noclear
+    global num, noclear
     num = 0
     noclear = True
 def banner():
-        global c
-        global num
+        global c, num
         c = True
         num = 0
         print("")
@@ -252,14 +257,13 @@ def banner():
         print("           .5@@@@@G?^.     .^?G@@@@@5.           ")
         print("             .YB!     .:^:.     !BY.             ")
         print("                  .JB@@@@@@@#Y:                  ")
-        print("                   !@@"+Green+"v1.0.0"+Reset+"@@!                  ")
+        print("                   !@@"+Green+"v1.0.1"+Reset+"@@!                  ")
         print("                    !&@@@@@&!                    ")
         print("                      ~#@#~                      ")
         print("                        ^                        ")
-        print("")
+        print()
 def SSID_func():
-    global num
-    global ssid
+    global num, ssid
     num = 0
     ssid = arg
     if ssid in ssid_list:
@@ -273,8 +277,7 @@ For example: 'python ncas.py -s "Mybox 123"'.
 Instead of: 'Python script.py -s Mybox 123'.
 Also pay attention to capital letters and tiny letters.""")
 def SSID_list_func():
-    global lines
-    global nbr
+    global lines, nbr
     num = 0
     for lines in ssid_list:
         print(Bright + ssid_list[num] + Reset)
@@ -556,7 +559,7 @@ for opt, arg in options:
         wlanreport_func()
     if opt in ('--config', ''):
         config_func()
-
+ 
 if len(sys.argv) == 1 or c == True:
             num = 0
             while True: 

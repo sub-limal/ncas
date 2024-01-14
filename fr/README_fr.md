@@ -1,6 +1,6 @@
 # NCAS
 
-NCAS est un script Python3 qui affiche les mots de passe WiFi enregistrés dans Windows. NCAS est basé sur netsh.
+NCAS (Netsh Command Automation Script) est un script Python3 qui affiche les mots de passe WiFi enregistrés dans Windows. NCAS est basé sur netsh.
 
 #### Translation
 
@@ -23,7 +23,7 @@ Version [anglaise](../README.md) du README.
 
 ## Installation
 
-NCAS a une version portable, vous pouvez simplement la télécharger et lancer NCAS.exe.
+NCAS a une version portable, vous pouvez simplement la télécharger et lancer ncas.exe.
 Si le programme ferme une premiére fois, réouvrez le un  seconde fois.
 
 ### Installation de la version Python

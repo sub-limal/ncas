@@ -28,8 +28,7 @@ if os.path.isdir('output') == False:
 config = configparser.ConfigParser()
 config.read("config.ini", encoding='utf-8')
 def config_func():
-    global num
-    global Key
+    global num, Key, config_All_users, config_All_users_with_indentation, config_Key
     num = 0
 
     print("[" + Bright + "i" + Reset + "] - Demarrage de la configuration")
@@ -81,8 +80,15 @@ def config_func():
         config.write(configfile)
     print("[" + Green + "+" + Reset + "] - Suppression du profil test")
     subprocess.run(["powershell", "netsh wlan delete profile 'AP NCAS CONFIG'", ], stdout=subprocess.DEVNULL)
-
-
+    config.read("config.ini", encoding='utf-8')
+    config_All_users = config['VARIABLES']['All users']
+    config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
+    config_Key = config['VARIABLES']['Key']
+    config_All_users += " "
+    config_All_users_with_indentation += " "
+    config_Key += " "
+    config_func.has_been_called = True
+config_func.has_been_called = False
 
 try:
     options, remainder = getopt.getopt(sys.argv[1:], 
@@ -112,8 +118,7 @@ try:
                                                                  'et=',
                                                                  'wlanreport',
                                                                  'wr',
-                                                                 'config',
-                                                                 'test'
+                                                                 'config'
                                                                  ])
 except getopt.GetoptError:
     print("""
@@ -138,30 +143,30 @@ if 1 < len(interface_list):
 
 subprocess.run(["powershell", "CHCP 1252", ], stdout=subprocess.DEVNULL)
 
+config_All_users = "Blank"
+config_All_users_with_indentation = "Blank"
+config_Key = "Blank"
+if ('--config', '') not in options:
+    try:
+        config_All_users = config['VARIABLES']['All users']
+        config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
+        config_Key = config['VARIABLES']['Key']
+        config_All_users += " "
+        config_All_users_with_indentation += " "
+        config_Key += " "
 
-try:
-    config_All_users = config['VARIABLES']['All users']
-    config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
-    config_Key = config['VARIABLES']['Key']
-    config_All_users += " "
-    config_All_users_with_indentation += " "
-    config_Key += " "
-
-except KeyError:
-    config_All_users = "Blank"
-    config_All_users_with_indentation = "Blank"
-    config_Key = "Blank"
-    if len(sys.argv) == 1:
-        print("""Il semblerait que le fichier "config.ini" est inexistant.""")
-        config_func()
-        sys.exit(0)
-    for opt, arg in options:
-        if opt == "--config":
-            pass
-        else:
-            print("""Il semblerait que le fichier "config.ini" est inexistant""")
+    except KeyError:
+        if len(sys.argv) == 1:
+            print("""Il semblerait que le fichier "config.ini" est inexistant.""")
             config_func()
+        for opt, arg in options:
+            if opt == "--config":
+                pass
+            else:
+                print("""Il semblerait que le fichier "config.ini" est inexistant.""")
+                config_func()
 
+config.read("config.ini", encoding='utf-8')
 
 get_ssid = subprocess.check_output(["powershell.exe", 'netsh wlan show profile | Select-String "{}"'.format(config_All_users),], text=True).strip()
 a = get_ssid.replace(config_All_users_with_indentation, "")
@@ -180,18 +185,22 @@ table_data = [ssid_list, pwd_list]
 dicti = dict(zip(ssid_list, pwd_list))
 df = pd.DataFrame([dicti])
 df = (df.T)
+
 if ssid_list == ['']:
-    print("""Une erreur a eu lieu. Cela peut être dû au fait que:
-          
-          - L'ordinateur ne s'est jamais connecté a un réseau WI-FI. 
-            Dans ce cas seul l'importation marchera.
-          
-          - Il n'y aucune interface de réseau sans fil disponible. 
-          
-          - Il y a une erreur dans le fichier de configuration. 
-            Dans ce cas veuillez relancez la configuration
-            avec la commande "ncas.exe --config"  
-          """) 
+    if ('--config', '') in options or config_func.has_been_called == True:
+        pass
+    else:
+        print("""Une erreur a eu lieu. Cela peut être dû au fait que:
+
+              - L'ordinateur ne s'est jamais connecté a un réseau WI-FI. 
+                Dans ce cas seul l'importation marchera.
+
+              - Il n'y aucune interface de réseau sans fil disponible. 
+
+              - Il y a une erreur dans le fichier de configuration. 
+                Dans ce cas veuillez relancez la configuration
+                avec la commande "ncas.exe --config"  
+              """) 
 
 noclear = False
 c = False
@@ -222,22 +231,17 @@ def clear():
     else:
         print()
 def nocolor():
-    global c
-    global num
-    global Green
-    global Bright
+    global c, num, Green, Bright
     c = True
     num = 0
     Green = Reset
     Bright = Reset
 def noclear_func():
-    global num
-    global noclear
+    global num, noclear
     num = 0
     noclear = True
 def banner():
-        global c
-        global num
+        global c, num
         c = True
         num = 0
         print("")
@@ -253,14 +257,13 @@ def banner():
         print("           .5@@@@@G?^.     .^?G@@@@@5.           ")
         print("             .YB!     .:^:.     !BY.             ")
         print("                  .JB@@@@@@@#Y:                  ")
-        print("                   !@@"+Green+"v1.0.0"+Reset+"@@!                  ")
+        print("                   !@@"+Green+"v1.0.1"+Reset+"@@!                  ")
         print("                    !&@@@@@&!                    ")
         print("                      ~#@#~                      ")
         print("                        ^                        ")
-        print("")
+        print()
 def SSID_func():
-    global num
-    global ssid
+    global num, ssid
     num = 0
     ssid = arg
     if ssid in ssid_list:
@@ -274,8 +277,7 @@ Par exemple: 'python script.py -s "MABOX 123"'.
 à la place de: 'python script.py -s MABOX 123'.
 Faites aussi attention au majuscules et au minuscules.""")
 def SSID_list_func():
-    global lines
-    global nbr
+    global lines, nbr
     num = 0
     for lines in ssid_list:
         print(Bright + ssid_list[num] + Reset)
@@ -497,10 +499,10 @@ def tables_func():
     for lines in ssid_list:
         table = SingleTable(table_data)
         table.inner_heading_row_border = False
-        table.inner_row_border = True # met des lignes entre les informations
+        table.inner_row_border = True
         table.justify_columns = {
             0:'center', 1:'center', 2:'center', 3:'center', 4:'center', 5:'center', 6:'center', 7:'center', 8:'center', 9:'center', 10:'center', 11:'center', 12:'center', 13:'center', 14:'center', 15:'center', 16:'center', 17:'center', 18:'center', 19:'center', 20:'center', 21:'center', 22:'center', 23:'center', 24:'center', 25:'center', 26:'center', 27:'center', 28:'center', 29:'center', 30:'center' 
-        } # centre les informations
+        }
         num += 1
         
     print(table.table)
