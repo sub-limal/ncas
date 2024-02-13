@@ -27,7 +27,7 @@ Version [anglaise](../README.md) du README.
 ## Installation
 
 NCAS a une version portable, vous pouvez simplement la télécharger et lancer ncas.exe.
-Comme je ne paie pas pour Git LFS, pour télécharger l'exécutable, vous devrez passer par un lien MediaFire disponible [ici] (https://mediafire.com).
+Comme je ne paie pas pour Git LFS, pour télécharger l'exécutable, vous devrez passer par un lien MediaFire disponible [ici] (https://www.mediafire.com/file/34gpt2dsik45i4j/ncas.exe/file).
 Cependant, le téléchargement de l'exécutable via GitHub pourrait parfois fonctionner.
 
 ### Installation de la version Python

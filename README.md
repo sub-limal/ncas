@@ -27,7 +27,7 @@ The both version work regardless the language installed on Windows.
 ## Installation
 
 NCAS has a portable version, you can just download and launch ncas.exe.
-Since I don't pay for Git LFS, to download the executable, you will have to go through a mediafire link available [here](https://mediafire.com). 
+Since I don't pay for Git LFS, to download the executable, you will have to go through a mediafire link available [here](https://www.mediafire.com/file/8sqe7qpgiqqufhe/ncas.exe/file). 
 However download the executable through Github might work sometimes.
 
 ### Python version installation
