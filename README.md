@@ -11,28 +11,30 @@ The both version work regardless the language installed on Windows.
 
 - Show passwords of each point access whose the computer was connected.
 - Can export one or more Wi-Fi profile:
-  - in .xml (format is used for the importation)
-  - in .txt
-  - in .xlms (excel format)
+  - to .xml (format is used for the importation)
+  - to .txt
+  - to .xlms (excel format)
 - Can import one or more Wi-Fi profile.
 - Have a interactive interface.
 - Can delete Wi-Fi profile.
 - Can list SSIDs
 - Can list the wireless network interfaces
+- Can display the intensity of the Wi-Fi signal
+- Can generate a Wi-Fi QR code
 
 ![alt text](image/Animation.gif)
 
 ## Installation
 
 NCAS has a portable version, you can just download and launch ncas.exe.
-If the program closed the first time, please reopen it a second time.
+Since I don't pay for Git LFS, to download the executable, you will have to go through a mediafire link available [here](https://mediafire.com). 
+However download the executable through Github might work sometimes.
 
 ### Python version installation
 
 ```python
   cd ncas-master
   pip install -r requirements
-  python ncas.py --config
   python ncas.py
 ```
 
@@ -43,6 +45,7 @@ If you want install the dependencies manually:
 - terminaltables
 - pandas
 - colorama
+- wifi_qrcode_generator
 
 ## Tested on
 <table>
@@ -61,3 +64,4 @@ If you want install the dependencies manually:
 #### Credits
 The executable version has been made with [auto-py-to-exe](https://github.com/brentvollebregt/auto-py-to-exe)
 
+Thanks to [Aishomeur](https://github.com/Aishomeur) for the idea of seeing the intensity of the Wi-Fi signal.

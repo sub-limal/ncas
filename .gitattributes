@@ -1,2 +1,14 @@
 ncas.exe filter=lfs diff=lfs merge=lfs -text
 fr/ncas.exe filter=lfs diff=lfs merge=lfs -text
+*.gif !text !filter !merge !diff
+*.py !text !filter !merge !diff
+*.md !text !filter !merge !diff
+config.ini !text !filter !merge !diff
+requirements.txt !text !filter !merge !diff
+.gitignore !text !filter !merge !diff
+*.exe !text !filter !merge !diff
+fr/* !text !filter !merge !diff
+image !text !filter !merge !diff
+.gitattributes !text !filter !merge !diff
+source/* !text !filter !merge !diff
+output/* !text !filter !merge !diff

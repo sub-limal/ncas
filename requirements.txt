@@ -1,3 +1,4 @@
 terminaltables
 pandas
 colorama
+wifi_qrcode_generator
