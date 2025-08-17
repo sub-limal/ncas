@@ -1,0 +1,12 @@
+# TODO list
+- [x] Replace the .format() by f'{}'
+- [ ] Improve `for` loops 
+- [ ] Remove useless `global`. Use argument in function instead.
+- [ ] Make the config function more readable
+- [ ] Add comments
+- [ ] Add real checking (e.g folder creation) instead of just printing
+- [ ] Delete `num` variable when its useless
+- [ ] Better variable name
+- [ ] Simplify config function
+- [ ] Improve config file
+- [x] Improve the printing of the banner
