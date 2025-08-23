@@ -8,5 +8,9 @@
 - [ ] Delete `num` variable when its useless
 - [ ] Better variable name
 - [ ] Simplify config function
-- [ ] Improve config file
+- [x] Improve config file
 - [x] Improve the printing of the banner
+- [x] Fix the `NameError` of `Key` in the `--si` flag
+- [ ] Use `argparse` instead of `getopt`
+- [ ] Remove repetitions
+- [ ] Use regex
