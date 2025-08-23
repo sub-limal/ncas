@@ -1,5 +1,6 @@
-output/*
+output/
+source/
 *.exe
 fr/*.exe
-config.ini
-fr/config.ini
+config.json
+fr/config.json
