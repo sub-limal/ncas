@@ -4,10 +4,10 @@ import sys
 import os
 import getopt
 import pandas as pd
-import configparser
 import re
 from colorama import Fore, Style
 import wifi_qrcode_generator.generator
+import json
 
 version = "v1.2.0"
 
@@ -24,10 +24,11 @@ if os.path.isdir('output') == False:
     os.makedirs("output")
     print("The output folder being absent, it has just been created.")
 
-config = configparser.ConfigParser()
-config.read("config.ini", encoding='utf-8')
+with open('config.json', 'r', encoding='utf-8') as configfile:
+    config = json.load(configfile)
+
 def config_func():
-    global Key, config_All_users, config_All_users_with_indentation, config_Key
+    global Key, config_All_users, config_Key
 
     print("[" + BRIGHT + "i" + RESET + "] - Configuration")
     print("[" + GREEN + "+" + RESET + "] - Creating the test profile.")
@@ -94,29 +95,27 @@ def config_func():
     Key -= 1
     Key = str(ssid_list[Key] + ": ")
     All_users += ": "
-    config['VARIABLES'] = {
-                             'All users': All_users,
-                             'Key': Key,
-                             }
+    config = {
+                'All users': re.sub(r'^\s*(\S.*)', r'\1', All_users),
+                'Key': re.sub(r'^\s*(\S.*)', r'\1', Key),
+             }
 
-    print("[" + GREEN + "+" + RESET + "] - File creation 'config.ini'")
-    with open('config.ini', 'w', encoding='utf-8') as configfile:
-        config.write(configfile)
+    print("[" + GREEN + "+" + RESET + "] - File creation 'config.json'")
+    with open('config.json', 'w', encoding='utf-8') as configfile:
+        json.dump(config, configfile, ensure_ascii=False, indent=4)
 
     print("[" + GREEN + "+" + RESET + "] - Deletion of the test profile")
     subprocess.run(["powershell", "netsh wlan delete profile 'AP NCAS CONFIG'", ], stdout=subprocess.DEVNULL)
-    config.read("config.ini", encoding='utf-8')
-    config_All_users = config['VARIABLES']['All users']
-    config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
-    config_Key = config['VARIABLES']['Key']
-    config_All_users += " "
-    config_All_users_with_indentation += " "
-    config_Key += " "
+    with open('config.json', 'r', encoding='utf-8') as configfile:
+        config = json.load(configfile)
+
+    config_All_users = config['All users']
+    config_Key = config['Key']
     config_func.has_been_called = True
 config_func.has_been_called = False
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 
+    options, remainder = getopt.getopt(sys.argv[1:],
                                                     's:lhi:e:rbd:cta', [
                                                                  'ssid=',
                                                                  'list-ssid',
@@ -153,7 +152,7 @@ It will seem that you have added options not supported by NCAS.
 Made 'python ncas.py -h' or 'python ncas.py --help to display the help and see which options are available.
 You may also have used an option that requires an argument, but that you do not specify an argument. 
 For example, the option --export requires an argument. So for example 'python ncas.py --export "MYBOX 123"'
-    """)
+""")
     sys.exit(0)
 get_interface = subprocess.check_output(["powershell.exe", "Get-NetAdapter Wi-Fi* | fl Name",], text=True).strip()
 get_interface = get_interface.replace("Name : ", "").strip()
@@ -165,40 +164,33 @@ interface_list = get_interface.split("\n", lines)
 for lines in get_interface:
     if '' in interface_list:
         interface_list.remove('')
-if 1 < len(interface_list):
+if len(interface_list) > 1:
     print("Several wireless network interfaces have been detected. A few bugs may occur.")
-
 subprocess.run(["powershell", "CHCP 1252", ], stdout=subprocess.DEVNULL)
 
-config_All_users = "Blank"
-config_All_users_with_indentation = "Blank"
-config_Key = "Blank"
 if ('--config', '') not in options:
     try:
-        config_All_users = config['VARIABLES']['All users']
-        config_All_users_with_indentation = "    " + config['VARIABLES']['All users']
-        config_Key = config['VARIABLES']['Key']
-        config_All_users += " "
-        config_All_users_with_indentation += " "
-        config_Key += " "
+        config_All_users = config['All users']
+        config_Key = config['Key']
 
     except KeyError:
         if len(sys.argv) == 1:
-            print("""It seems that the "config.ini" file is nonexistent.""")
+            print("It seems that the 'config.ini' file is nonexistent.")
             config_func()
         for opt, arg in options:
             if opt == "--config":
                 pass
             else:
-                print("""It seems that the "config.ini" file is nonexistent""")
+                print("It seems that the 'config.ini' file is nonexistent")
                 config_func()
 
 def main():
     if main.has_been_called == False:
         global table_data, df, ssid_list, pwd_list, dicti
         get_ssid = subprocess.check_output(["powershell.exe", f'netsh wlan show profile | Select-String "{config_All_users}"'], text=True).strip()
-        get_ssid = get_ssid.replace(config_All_users_with_indentation, "")
+        
         get_ssid = get_ssid.replace(config_All_users, "")
+        get_ssid = get_ssid.replace("    ", "")
         lines = int(get_ssid.count("\n"))
         lines += 1
         ssid_list = get_ssid.split("\n", lines)
@@ -444,9 +436,9 @@ def simple_interface_func():
                 continue
             except KeyboardInterrupt:
                 print("""
-        Au revoir \(^_^)/
-                    | |
-                    \\ \\""")
+Bye       \(^_^)/
+            | |
+            \\ \\""")
                 sys.exit(0)
             if 0 <= inp:
                 print("")
@@ -456,7 +448,7 @@ def simple_interface_func():
             ssid = ssid_list[int(inp)]
             print(ssid)
 
-            pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{Key}"'], text=True).strip()
+            pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{config_Key}"'], text=True).strip()
             pwd = pwd.replace(config_Key, "")
             print(pwd)
 
