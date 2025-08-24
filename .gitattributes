@@ -1,9 +1,0 @@
-*.gif !text !filter !merge !diff
-*.py !text !filter !merge !diff
-*.md !text !filter !merge !diff
-config.ini !text !filter !merge !diff
-requirements.txt !text !filter !merge !diff
-.gitignore !text !filter !merge !diff
-.gitattributes !text !filter !merge !diff
-*.exe !text
-fr/*.exe !text
