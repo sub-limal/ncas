@@ -2,15 +2,14 @@
 - [x] Replace the .format() by f'{}'
 - [ ] Improve `for` loops 
 - [ ] Remove useless `global`. Use argument in function instead.
-- [ ] Make the config function more readable
-- [ ] Add comments
-- [ ] Add real checking (e.g folder creation) instead of just printing
+- [x] Add comments
+- [x] Add real checking (e.g folder creation) instead of just printing
 - [ ] Delete `num` variable when its useless
 - [ ] Better variable name
-- [ ] Simplify config function
+- [x] Simplify config function
 - [x] Improve config file
 - [x] Improve the printing of the banner
 - [x] Fix the `NameError` of `Key` in the `--si` flag
-- [ ] Use `argparse` instead of `getopt`
-- [ ] Remove repetitions
-- [ ] Use regex
+- [x] Use `argparse` instead of `getopt`
+- [x] Remove repetitions
+- [x] Use regex
