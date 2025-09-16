@@ -48,7 +48,7 @@ parser.add_argument('--nc', '--no-color', action='store_true', dest='no-color', 
 parser.add_argument('--no-clear', action='store_true', dest='no-clear', help='Allows you not to clean the console with each new input on interactive-interface mode.')
 parser.add_argument('--wr', '--wlanreport', dest='wlanreport', action='store_true', help='Generates a report on the network.')
 parser.add_argument('--config', action='store_true', help="Generate a new 'config.ini' file.")
-parser.add_argument('--intensity', action='store_true', help='See the intensity of Wi-Fi signal.')
+parser.add_argument('--intensity', action='store_true', help='See the intensity of the Wi-Fi signal.')
 args = parser.parse_args()
 
 # This function is necessary to retrieve the `config` values which are required for NCAS to work correctly on systems that use a different language than English
@@ -109,7 +109,7 @@ def config_func():
     All_users += ": "
     config = {
                 'All users': re.sub(r'^\s*(\S.*)', r'\1', All_users),
-                'Key': re.sub(r'^\s*(\S.*)', r'\1', Key),
+                'Key': re.sub(r'^\s*(\S.*)', r'\1', Key)
              }
 
     print(f"[{GREEN}+{RESET}] - File creation 'config.json'")
@@ -149,12 +149,14 @@ if not args.config:
         config = config_func()
         config_All_users = config['All users']
         config_Key = config['Key']
+table_data = []
 
-def main():
+def main(config):
     if main.has_been_called == False:
-        global table_data, df, ssid_list, pwd_list, dicti
+        global df, ssid_list, pwd_list, dicti
+        config_All_users = config['All users']
+        config_Key = config['Key']
         get_ssid = subprocess.check_output(["powershell.exe", f'netsh wlan show profile | Select-String "{config_All_users}"'], text=True).strip()
-        
         get_ssid = get_ssid.replace(config_All_users, "")
         get_ssid = get_ssid.replace("    ", "") # remove indent
         lines = int(get_ssid.count("\n")) + 1
@@ -164,7 +166,7 @@ def main():
             pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{config_Key}"'], text=True).strip()
             pwd = pwd.replace(config_Key, "")
             pwd_list.append(pwd)
-        table_data = [ssid_list, pwd_list]
+        table_data.append([ssid_list, pwd_list])
         dicti = dict(zip(ssid_list, pwd_list))
         df = pd.DataFrame([dicti])
         df = (df.T)
@@ -180,7 +182,7 @@ def main():
 
                       - There is an error in the configuration file.
                         In this case please relaunch the configuration
-                        with: 'python ncas.py --config'.""")
+                        with: 'ncas --config'.""")
                 while True:
                     print("Do you want to relauch the configuration for NCAS (y/n) ?")
                     conf = input("-> ")
@@ -190,7 +192,7 @@ def main():
                         config_Key = config['Key']
                         main.has_been_called == False
                         print(f"[{BRIGHT}i{RESET}] - NCAS is relaunching...")
-                        main()
+                        main(config)
                         break
                     if conf == "n":
                         break
@@ -206,16 +208,11 @@ noclear = False
 c = False
 
 def list_ssid_ii(func):
-    global lines
-    main()
+    main(config)
     while True:
-        num = 0
-        nbr = 1
         print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
-        for lines in ssid_list:
-            print(f"[{GREEN+str(nbr)+RESET}] - {BRIGHT}{ssid_list[num]}{RESET}")
-            num += 1
-            nbr += 1
+        for index, ssid in enumerate(ssid_list, 1):
+            print(f"[{GREEN + index + RESET}] - {BRIGHT + ssid + RESET}")
         try:
             inp = prompt()
             if inp == 0:
@@ -278,34 +275,30 @@ def banner():
                      ^
 """)
 def SSID_func(SSID):
-    main()
+    main(config)
     if SSID in ssid_list:
         passwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{SSID}" key=clear | Select-String "{config_Key}"'], text=True, encoding='utf-8').strip()
         print(SSID)
         print(passwd)
     else:
-        print("""The SSID indicate does not seem to be saving on this computer. If it contains spaces, use double quotes.
-For example: 'python ncas.py -s "Mybox 123"'.
-Instead of: 'python ncas.py -s Mybox 123'.
-Also pay attention to capital letters and tiny letters.""")
+        print("""The SSID you entered does not appear to be saved on this computer.
+If the SSID contains spaces, use double quotes.
+For example: 'ncas -s "Mybox 123"'.
+Instead of: 'ncas -s Mybox 123'.
+Also pay attention to uppercase and lowercase letters, SSIDs are case sensitive.""")
 def SSID_list_func():
-    main()
+    main(config)
     for ssid in ssid_list:
         print(BRIGHT + ssid + RESET)
 def simple_interface_func():
-        main()
-        global ssid, lines
-        num = 0
-        nbr = 1
+        main(config)
         print(f"[{GREEN}0{RESET}] - {BRIGHT}All{RESET}")
-        for lines in ssid_list:
-            print(f"[{GREEN+str(nbr)+RESET}] - {BRIGHT+ssid_list[num]+RESET}")
-            num += 1
-            nbr += 1
+        for index, ssid in enumerate(ssid_list, 1):
+            print(f"[{GREEN+index+RESET}] - {BRIGHT + ssid + RESET}")
         while True:
             try:
                 inp = int(input("-> "))
-                ssid = ssid_list[int(inp)]
+                ssid = ssid_list[inp]
                 if inp < 0:
                     print("Please enter a valid number.")
             except (IndexError, ValueError):
@@ -322,7 +315,7 @@ Bye       \(^_^)/
                 break
         if 0 < inp:
             inp -= 1
-            ssid = ssid_list[int(inp)]
+            ssid = ssid_list[inp]
             print(ssid)
             pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{config_Key}"'], text=True).strip()
             pwd = pwd.replace(config_Key, "")
@@ -340,7 +333,7 @@ def import_func():
     except Exception as e:
         print("Error:", e)
 def exp_func(profile):
-    main()
+    main(config)
     if profile in ssid_list:
         try:
             subprocess.run(['powershell.exe', f'netsh wlan export profile "{profile}" folder=output\ key=clear'], stdout=subprocess.DEVNULL)
@@ -348,11 +341,11 @@ def exp_func(profile):
         except Exception as e:
             print("Error:", e)
     else:
-        print("""
-The SSID indicate does not seem to be saved on this computer.
-If it contains spaces, and you are not in interactive interface mode, use double quotes.
-For example: python ncas.py --export "Mybox 123"
-Instead of: python ncas.py --export Mybox 123
+        print("""The SSID you entered does not appear to be saved on this computer.
+If the SSID contains spaces, use double quotes.
+For example: 'ncas -s "Mybox 123"'.
+Instead of: 'ncas -s Mybox 123'.
+Also pay attention to uppercase and lowercase letters, SSIDs are case sensitive.
 """)
 def export_func():
     try:
@@ -373,30 +366,25 @@ def remove_func():
 def del_func(profile_del):
     subprocess.run(['powershell.exe', f'netsh wlan delete profile "{profile_del}"'])
 def delete_func():
-    main()
-    global num, lines
-    num = 0
+    main(config)
     print("You are about to " + RED + "DELETE DEFINITELY ALL" + RESET + " Wi-Fi profiles.")
-    print("You can import them again if you have exported them. Do you want to continue?")
-    print("")
+    print("You can import them again if you have exported them. Do you want to continue ?\n")
     print(f"[{GREEN}1{RESET}] - {BRIGHT}Quit{RESET}")
     print(f"[{GREEN}2{RESET}] - {BRIGHT}Continue{RESET}")
     inp = prompt()
     if inp == 1:
         sys.exit(0)
     if inp == 2:
-        for lines in ssid_list:
-            subprocess.run(['powershell.exe', f'netsh wlan delete profile "{ssid_list[num]}"']) 
-            num += 1
+        for ssid in ssid_list:
+            subprocess.run(['powershell.exe', f'netsh wlan delete profile "{ssid}"']) 
 def continue_func():
     global c
     c = True
 def export_to_func(format_export):
-    main()
-    global ssid
+    main(config)
     if format_export == 'txt':
-        f = open("output/output.txt", "w")
-        if '-s' in sys.argv or '--ssid' in sys.argv:
+        if args.ssid:
+            ssid = args.ssid
             if ssid in ssid_list:
                 passwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{config_Key}"',], text=True).strip()
                 passwd = passwd.replace(config_Key, "")
@@ -406,6 +394,7 @@ def export_to_func(format_export):
             s.write(passwd)
         else:
             try:
+                f = open("output/output.txt", "w")
                 f.write(re.sub(r'^[^\n]*\n', '', str(df)))
                 print("The 'output.txt' file is available in the output folder.")
             except Exception as e:
@@ -417,7 +406,8 @@ def export_to_func(format_export):
         except Exception as e:
             print("Error:", e)
 def tables_func():
-    main()
+    main(config)
+    table_data = [ssid_list, pwd_list]
     table = SingleTable(table_data)
     table.inner_heading_row_border = False
     table.inner_row_border = True
@@ -425,7 +415,7 @@ def tables_func():
     table.justify_columns = {i: 'center' for i in range(column_count)}
     print(table.table)
 def all_func():
-    main()
+    main(config)
     print(re.sub(r'^[^\n]*\n', '', str(df))) # delete first line and print df
 def wlanreport_func():
     subprocess.run(['powershell.exe', 'netsh wlan show wlanreport'], text=True)
@@ -438,7 +428,7 @@ def intensity_func():
         except KeyboardInterrupt:
             break
 def qr_func(ssid):
-    main()
+    main(config)
     if ssid in ssid_list:
         try:
             qr_code = wifi_qrcode_generator.generator.wifi_qrcode(ssid=ssid, hidden=False, authentication_type='WPA', password=dicti[ssid])
@@ -447,10 +437,11 @@ def qr_func(ssid):
         except Exception as e:
             print("Error:", e)
     else:
-        print("""The SSID indicate does not seem to be saving on this computer. If it contains spaces, use double quotes.
-For example: 'python ncas.py --qr "Mybox 123"'.
-Instead of: 'python ncas.py --qr Mybox 123'.
-Also pay attention to capital letters and tiny letters.""")
+        print("""The SSID you entered does not appear to be saved on this computer.
+If the SSID contains spaces, use double quotes.
+For example: 'ncas -s "Mybox 123"'.
+Instead of: 'ncas -s Mybox 123'.
+Also pay attention to uppercase and lowercase letters, SSIDs are case sensitive""")
 
 actions = {
     'no-color': (nocolor, False),
@@ -487,7 +478,6 @@ for arg_name, (function, takes_arg) in actions.items():
             function()
 
 if len(sys.argv) == 1 or c == True:
-            num = 0
             while True:
                 print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Quit' + RESET)
                 print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles, and their passwords' + RESET)
