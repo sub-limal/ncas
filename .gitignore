@@ -1,6 +1,4 @@
 output/
 source/
 *.exe
-fr/*.exe
 config.json
-fr/config.json
