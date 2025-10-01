@@ -30,8 +30,7 @@ parser = argparse.ArgumentParser(description=f"Netsh Command Automation Script {
 parser.add_argument('-a', '--all', action='store_true', help='Display all saved Wi-Fi profiles along with their passwords.Display all saved Wi-Fi profiles along with their passwords.')
 parser.add_argument('-s', '--ssid', dest='ssid', type=str, help='Display the password for a specific Wi-Fi SSID.')
 parser.add_argument('--si', '--simple-interface', action='store_true', dest='simple-interface', help='Use a simplified version of the interactive interface.')
-parser.add_argument('-e', '--exp', dest='exp', type=str, help='Export a specific Wi-Fi profile to a .xml file in the output folder.')
-parser.add_argument('--export', action='store_true', dest='export', help='Export all saved Wi-Fi profiles to .xml files in the output folder.')
+parser.add_argument('-e', '--export', dest='export', nargs='?', const=True, help='Export all saved Wi-Fi profiles to .xml files in the output folder.')
 parser.add_argument('-i', '--imp', dest='imp', type=str, help='Import a specific Wi-Fi profile from a .xml file.')
 parser.add_argument('--import', action='store_true', dest='import', help='Import all Wi-Fi profiles from .xml files in the source folder.')
 parser.add_argument('-d', '--del', dest='del', type=str, help='Delete a specific saved Wi-Fi profile.')
@@ -342,27 +341,28 @@ def import_func():
         print("The profiles in the source folder were well imported.")
     except Exception as e:
         print("Error:", e)
-def exp_func(profile):
-    main(config)
-    if profile in ssid_list:
-        try:
-            subprocess.run(['powershell.exe', f'netsh wlan export profile "{profile}" folder=output\ key=clear'], stdout=subprocess.DEVNULL)
-            print("The profile", profile, "was exported. Look in the output folder.")
-        except Exception as e:
-            print("Error:", e)
-    else:
-        print("""The SSID you entered does not appear to be saved on this computer.
+def export_func(profile=None):
+    if profile:
+        main(config)
+        if profile in ssid_list:
+            try:
+                subprocess.run(['powershell.exe', f'netsh wlan export profile "{profile}" folder=output\ key=clear'], stdout=subprocess.DEVNULL)
+                print("The profile", profile, "was exported. Look in the output folder.")
+            except Exception as e:
+                print("Error:", e)
+        else:
+            print("""The SSID you entered does not appear to be saved on this computer.
 If the SSID contains spaces, use double quotes.
 For example: 'ncas -s "Mybox 123"'.
 Instead of: 'ncas -s Mybox 123'.
 Also pay attention to uppercase and lowercase letters, SSIDs are case sensitive.
-""")
-def export_func():
-    try:
-        subprocess.run(['powershell.exe', 'netsh wlan export profile folder=output\ key=clear'], text=True)
-        print("Export was a success! Look in the output folder.")
-    except Exception as e:
-        print("Error:", e)
+    """)
+    else:
+        try:
+            subprocess.run(['powershell.exe', 'netsh wlan export profile folder=output\ key=clear'], text=True)
+            print("Export was a success! Look in the output folder.")
+        except Exception as e:
+            print("Error:", e)
 def list_interface_func():
     print("Wireless interface on the system:")
     for interface in interface_list:
@@ -480,8 +480,7 @@ actions = {
     'simple-interface': (simple_interface_func, False),
     'imp': (imp_func, True),
     'import': (import_func, False),
-    'exp': (exp_func, True),
-    'export': (export_func, False),
+    'export': (export_func, True),
     'list-interface': (list_interface_func, False),
     'remove': (remove_func, False),
     'delete': (delete_func, False),
@@ -561,7 +560,7 @@ if len(sys.argv) == 1 or c == True:
                             export_func()
                             continue
                         if inp == 2:
-                            list_ssid_ii(exp_func)
+                            list_ssid_ii(export_func)
                         if inp == 3:
                             print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
                             print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'To .txt' + RESET)
