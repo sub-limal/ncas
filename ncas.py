@@ -30,9 +30,8 @@ parser = argparse.ArgumentParser(description=f"Netsh Command Automation Script {
 parser.add_argument('-a', '--all', action='store_true', help='Display all saved Wi-Fi profiles along with their passwords.Display all saved Wi-Fi profiles along with their passwords.')
 parser.add_argument('-s', '--ssid', dest='ssid', type=str, help='Display the password for a specific Wi-Fi SSID.')
 parser.add_argument('--si', '--simple-interface', action='store_true', dest='simple-interface', help='Use a simplified version of the interactive interface.')
-parser.add_argument('-e', '--export', dest='export', nargs='?', const=True, help='Export all saved Wi-Fi profiles to .xml files in the output folder.')
-parser.add_argument('-i', '--imp', dest='imp', type=str, help='Import a specific Wi-Fi profile from a .xml file.')
-parser.add_argument('--import', action='store_true', dest='import', help='Import all Wi-Fi profiles from .xml files in the source folder.')
+parser.add_argument('-e', '--export', dest='export', nargs='?', const=True, type=str, help='Export all saved Wi-Fi profiles to .xml files in the output folder if no argument is given. Otherwise, export the specified profile.')
+parser.add_argument('-i', '--import', dest='import', nargs='?', const=True, type=str, help='Import all Wi-Fi profiles if no argument is given. Otherwise, import the specified profile from a .xml file.')
 parser.add_argument('-d', '--del', dest='del', type=str, help='Delete a specific saved Wi-Fi profile.')
 parser.add_argument('--delete', action='store_true', dest='delete', help='Delete a specific saved Wi-Fi profile.')
 parser.add_argument('--qr', dest='qr', type=str, help='Generate a QR code for the selected Wi-Fi.')
@@ -109,14 +108,14 @@ def config_func():
     config = {
                 'All users': re.sub(r'^\s*(\S.*)', r'\1', All_users),
                 'Key': re.sub(r'^\s*(\S.*)', r'\1', Key)
-             }
-
+             }    
     print(f"[{GREEN}+{RESET}] - File creation 'config.json'")
-    with open('config.json', 'w') as configfile:
+    with open('config.json', 'w', encoding='utf-8') as configfile:
         json.dump(config, configfile, ensure_ascii=False, indent=4)
+    print(config)
     print(f"[{GREEN}+{RESET}] - Deletion of the test profile")
     subprocess.run(["powershell", "netsh wlan delete profile 'AP NCAS CONFIG'"], stdout=subprocess.DEVNULL)
-    with open('config.json', 'r') as configfile:
+    with open('config.json', 'r', encoding='utf-8') as configfile:
         config = json.load(configfile)
     config_func.has_been_called = True
     return config
@@ -134,7 +133,7 @@ if len(interface_list) > 1:
     print("Several wireless network interfaces have been detected. A few bugs may occur.")
 subprocess.run(["powershell", "CHCP 1252"], stdout=subprocess.DEVNULL)
 try:
-    with open('config.json', 'r') as configfile:
+    with open('config.json', 'r', encoding='utf-8') as configfile:
         config = json.load(configfile)
 except (FileNotFoundError, KeyError) as e:
     print("It seems that the 'config.json' file is nonexistent or a key in a dictionnary is incorrect:", e)
@@ -153,7 +152,7 @@ def main(config):
         get_ssid = get_ssid.replace(config_All_users, "")
         get_ssid = get_ssid.replace("    ", "") # remove indent
         lines = int(get_ssid.count("\n")) + 1
-        ssid_list = get_ssid.encode('latin1').decode('utf-8').split("\n", lines)
+        ssid_list = get_ssid.split("\n", lines)
         pwd_list = []
         for ssid in ssid_list:
             pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{config_Key}"'], text=True).strip()
@@ -331,16 +330,17 @@ Bye       \(^_^)/
             print(pwd)
         elif inp == 0:
             print(table_output())
-def imp_func(path):
-    if ".xml" not in path:
-        path += ".xml"
-    subprocess.run(['powershell.exe', f'netsh wlan add profile filename={path}'])
-def import_func():
-    try:
-        subprocess.run(['powershell.exe', '$XmlDirectory = "source" ; Get-ChildItem $XmlDirectory | Where-Object {$_.extension -eq ".xml"} | ForEach-Object {netsh wlan add profile filename=($XmlDirectory+"\\"+$_.name)}'])
-        print("The profiles in the source folder were well imported.")
-    except Exception as e:
-        print("Error:", e)
+def import_func(path=None):
+    if path:
+        if ".xml" not in path:
+            path += ".xml"
+        subprocess.run(['powershell.exe', f'netsh wlan add profile filename={path}'])
+    else:        
+        try:
+            subprocess.run(['powershell.exe', '$XmlDirectory = "source" ; Get-ChildItem $XmlDirectory | Where-Object {$_.extension -eq ".xml"} | ForEach-Object {netsh wlan add profile filename=($XmlDirectory+"\\"+$_.name)}'])
+            print("The profiles in the source folder were well imported.")
+        except Exception as e:
+            print("Error:", e)
 def export_func(profile=None):
     if profile:
         main(config)
@@ -478,8 +478,7 @@ actions = {
     'ssid': (SSID_func, True),
     'ssid-list': (SSID_list_func, False),
     'simple-interface': (simple_interface_func, False),
-    'imp': (imp_func, True),
-    'import': (import_func, False),
+    'import': (import_func, True),
     'export': (export_func, True),
     'list-interface': (list_interface_func, False),
     'remove': (remove_func, False),
@@ -499,7 +498,7 @@ actions = {
 for arg_name, (function, takes_arg) in actions.items():
     value = getattr(args, arg_name)
     if value:
-        if takes_arg:
+        if takes_arg and value is not True:
             function(value)
         else:
             function()
@@ -548,7 +547,7 @@ if len(sys.argv) == 1 or c == True:
                         if inp == 2:
                             print("Enter the access path to the Wi-Fi profile to import:")
                             path = input("-> ")
-                            imp_func(path)
+                            import_func(path)
                             continue
                     if inp == 2:
                         print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
