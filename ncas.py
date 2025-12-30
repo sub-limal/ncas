@@ -1,13 +1,15 @@
-from terminaltables import SingleTable
-import subprocess
 import sys
 import os
+import subprocess
 import argparse
-import pandas as pd
 import re
+import json
+import csv
+import tempfile
+import xml.etree.ElementTree as ET
+from terminaltables import SingleTable
 from colorama import Fore, Style
 import wifi_qrcode_generator.generator
-import json
 
 VERSION = "v1.2.0"
 BRIGHT = Style.BRIGHT
@@ -24,7 +26,6 @@ class WifiManager:
         self.check_dir('source')
         self.ssid_list = []
         self.pwd_list = []
-        self.df = None
         self.config = {}
         self.table_data = []
         self.load_config()
@@ -129,35 +130,51 @@ Also pay attention to uppercase and lowercase letters, SSIDs are case sensitive"
             self.config = self.create_config()
 
     def load_ssid_pwd(self):
-        key_str = self.config.get('Key', 'Key Content')
-        user_str = self.config.get('All users', 'All User Profile')
-        get_ssid = subprocess.check_output(["powershell.exe", f'netsh wlan show profile | Select-String "{user_str}"'], text=True).strip()
-        get_ssid = get_ssid.replace(user_str, "")
-        get_ssid = get_ssid.replace("    ", "")
-        try:
-            get_ssid = get_ssid.encode('latin-1').decode('utf-8')
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            pass
-        lines = int(get_ssid.count("\n")) + 1
-        self.ssid_list = get_ssid.split("\n", lines)
-        for ssid in self.ssid_list:
-            pwd = subprocess.check_output(['powershell.exe', f'netsh wlan show profile "{ssid}" key=clear | Select-String "{key_str}"'], text=True).strip()
-            pwd = pwd.replace(key_str, "")
-            self.pwd_list.append(pwd)
-        self.table_data.append([self.ssid_list, self.pwd_list])
-        self.print_ssid_passwd = dict(zip(self.ssid_list, self.pwd_list))
-        self.df = pd.DataFrame(list(self.print_ssid_passwd.items()), columns=["SSID", "Password"])
+            self.ssid_list = []
+            self.pwd_list = []
+            
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                subprocess.run(
+                    ['netsh', 'wlan', 'export', 'profile', f'folder={tmpdirname}', 'key=clear'],
+                    stdout=subprocess.DEVNULL, 
+                    stderr=subprocess.DEVNULL
+                )
+
+                for filename in os.listdir(tmpdirname):
+                    if filename.endswith(".xml"):
+                        try:
+                            tree = ET.parse(os.path.join(tmpdirname, filename))
+                            root = tree.getroot()
+                            
+                            ns = root.tag.split('}', 1)[0] + '}' if '}' in root.tag else ''
+                            name_node = root.find(f'.//{ns}name')
+                            ssid = name_node.text if name_node is not None else "Unknown"
+                            protected_node = root.find(f'.//{ns}protected')
+                            is_protected = (protected_node is not None and protected_node.text == 'true')
+                            pwd = ""
+                            if is_protected:
+                                pass
+                            else:
+                                key_node = root.find(f'.//{ns}keyMaterial')
+                                pwd = key_node.text if key_node is not None else ""
+                            
+                            self.ssid_list.append(ssid)
+                            self.pwd_list.append(pwd)                            
+                        except Exception:
+                            continue
+            self.table_data.append([self.ssid_list, self.pwd_list])
+            self.print_ssid_passwd = dict(zip(self.ssid_list, self.pwd_list))
     def print_all(self):
         print(self.table_output())
     def table_output(self):
-        max_ssid_len = self.df["SSID"].str.len().max()
-        max_pass_len = self.df["Password"].str.len().max()
+        max_ssid_len = max([len("SSID")] + [len(s) for s in self.ssid_list]) + 2
+        max_pass_len = max([len("Password")] + [len(p) for p in self.pwd_list]) + 2
         lines = []
         header = f"{'SSID':<{max_ssid_len}}  {'Password':<{max_pass_len}}"
         lines.append(header)
         lines.append('-' * len(header))
-        for _, row in self.df.iterrows():
-            line = f"{row['SSID']:<{max_ssid_len}}  {row['Password']:<{max_pass_len}}"
+        for ssid, pwd in zip(self.ssid_list, self.pwd_list):
+            line = f"{ssid:<{max_ssid_len}}{pwd:<{max_pass_len}}"
             lines.append(line)
         table_str = "\n".join(lines)
         return table_str
@@ -222,21 +239,26 @@ Bye       \(^_^)/
             ssid = self.ssid_list[inp - 1]
             self.print_ssid_passwd(ssid)
     def export_to(self, format_export):
-        if self.df is None or self.df.empty: 
+        if not self.ssid_list:
             return
         try:
+            data = list(zip(self.ssid_list, self.pwd_list))
             path = "output/output." + format_export
             if format_export == 'txt':
-                with open(path, 'w') as f: 
-                    f.write(self.df.to_string())
-            elif format_export == 'xlsx': 
-                self.df.to_excel(path, index=False)
-            elif format_export == 'csv': 
-                self.df.to_csv(path, index=False)
-            elif format_export == 'json': 
-                self.df.to_json(path, orient="records", indent=4)
-            elif format_export == 'md': 
-                self.df.to_markdown(path, index=False)
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(self.table_output())
+            elif format_export == 'csv':
+                with open(path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["SSID", "Password"])
+                    writer.writerows(data)
+            elif format_export == 'json':
+                json_data = [{"SSID": s, "Password": p} for s, p in data]
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(json_data, f, indent=4, ensure_ascii=False)
+            else:
+                print("Please use one of the following format: txt, csv, json")
+                return
             print(f"File exported to {path}")
         except Exception as e:
             print(f"Export error: {e}")
@@ -375,7 +397,7 @@ parser.add_argument('--qr', dest='qr', type=str, help='Generate a QR code for th
 parser.add_argument('--et', '--export-to', dest='export_to', type=str, choices=['txt', 'xlsx', 'csv', 'json', 'md'], help='Export all Wi-Fi profiles to the specified file format.')
 parser.add_argument('-l', '--list-ssid', action='store_true', dest='ssid_list', help='List all saved SSIDs (without passwords).')
 parser.add_argument('-r', '--remove', action='store_true', help='Remove the content of the output directory.')
-parser.add_argument('-b', '--banner', action='store_true', help='Display the NCAS banner and run the script.')
+parser.add_argument('-b', '--banner', dest='banner', action='store_true', help='Display the NCAS banner and run the script.')
 parser.add_argument('-c', '--continue', action='store_true', dest='continue', help='Display saved Wi-Fi profiles and passwords in table format.')
 parser.add_argument('-t', '--table', dest='table', action='store_true', help='Display saved Wi-Fi profiles and passwords in table format.')
 parser.add_argument('--li', '--list-interfaces', action='store_true', dest='list_interfaces', help='List all wireless network interfaces.')
@@ -393,6 +415,9 @@ if args.no_color: no_color()
 if args.no_clear: no_clear()
 if args.banner: banner()
 actions_map = {
+    'no_color': (no_color, False),
+    'no_clear': (no_clear, False),
+    'banner': (banner, False),
     'config': (ncas.create_config, False),
     'ssid': (ncas.print_ssid_passwd, True),
     'ssid_list': (ncas.print_list_ssid, False),
