@@ -3,6 +3,7 @@ import os
 import subprocess
 import argparse
 import re
+import time
 import json
 import csv
 import tempfile
@@ -58,7 +59,7 @@ Note: SSIDs are case-sensitive (check for uppercase/lowercase letters).""")
     def load_ssid_pwd(self):
             self.ssid_list = []
             self.pwd_list = []
-            
+
             with tempfile.TemporaryDirectory() as tmpdir:
                 subprocess.run(['netsh', 'wlan', 'export', 'profile', f'folder={tmpdir}', 'key=clear'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 for filename in os.listdir(tmpdir):
@@ -182,7 +183,7 @@ Bye       \(^_^)/
             print(f"File exported to {path}")
         except Exception as e:
             print(f"Export error: {e}")
-    
+
     def import_func(self, path=None):
         if path:
             if ".xml" not in path:
@@ -191,7 +192,7 @@ Bye       \(^_^)/
         else:        
             try:
                 subprocess.run(['powershell.exe', '$XmlDirectory = "source" ; Get-ChildItem $XmlDirectory | Where-Object {$_.extension -eq ".xml"} | ForEach-Object {netsh wlan add profile filename=($XmlDirectory+"\\"+$_.name)}'])
-                print("The profiles from the source folder were successfully imported.")
+                print("The profiles from the 'source' folder were successfully imported.")
             except Exception as e:
                 print("Error:", e)
     def export_func(self, profile=None):
@@ -214,8 +215,8 @@ Bye       \(^_^)/
         if profile:
             subprocess.run([f'netsh', 'wlan', 'delete', 'profile', f'"{profile}"'])
         else:
-            print(f"You are about to {RED}DELETE DEFINITELY ALL{RESET} Wi-Fi profiles.")
-            print("You can import them again if you have exported them. Do you want to continue ?\n")
+            print(f"You are about to {RED}PERMANENTLY DELETE ALL{RESET} Wi-Fi profiles.")
+            print("You can restore them later if you have a backup. Do you want to continue?\n")
             print(f"[{GREEN}1{RESET}] - {BRIGHT}Quit{RESET}")
             print(f"[{GREEN}2{RESET}] - {BRIGHT}Continue{RESET}")
             inp = prompt()
@@ -234,7 +235,6 @@ Bye       \(^_^)/
                 print("Error:", e)
         else:
             self._print_error_ssid()
-
     def print_list_interface(self):
         print("Wireless interface on the system:")
         for interface in self.interface_list:
@@ -242,19 +242,36 @@ Bye       \(^_^)/
     def remove(self):
         try:
             subprocess.run(['del', 'output\*'])
-            print("The output directory was successfully cleared.")
+            print("The 'output' directory was successfully cleared.")
         except Exception as e:
             print("Error:", e)
     def wlanreport(self):
         subprocess.run(['netsh', 'wlan', 'show' 'wlanreport'], text=True)
     def intensity(self):
-        while True:
-            try:
-                signal = subprocess.check_output(['powershell', 'netsh wlan show interfaces | Select-String "%"'], text=True, encoding='utf-8').strip()
-                os.system('cls')
-                print(signal)
-            except KeyboardInterrupt:
-                break
+        try:
+            while True:
+                output = subprocess.check_output(['netsh', 'wlan', 'show', 'interfaces'], text=True, shell=True)
+                match = re.search(r'(\d+)%', output)
+                if match:
+                    signal = int(match.group(1))
+                    bar_len = 50
+                    filled_len = int(bar_len * signal // 100)
+                    bar = '█' * filled_len + '-' * (bar_len - filled_len)
+                    if signal >= 80:
+                        color = GREEN
+                    elif signal >= 50:
+                        color = Fore.YELLOW
+                    else:
+                        color = RED
+                    os.system('cls')
+                    print("Monitoring signal strength (Press CTRL+C to stop)...")
+                    print(f"\n{BRIGHT}Wi-Fi Signal Strength:{RESET}\n")
+                    print(f"[{color}{bar}{RESET}] {BRIGHT}{signal}%{RESET}")
+                else:
+                    print("Signal not found")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nStopped.")
     def continue_func(self):
         global c
         c = True
@@ -365,7 +382,7 @@ if len(sys.argv) == 1 or c == True:
                 print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles, and their passwords' + RESET)
                 print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Manage Wi-Fi profiles' + RESET)
                 print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'List the wireless network interfaces' + RESET)
-                print('[' + GREEN + '4' + RESET + '] -', BRIGHT + 'Other (configuration file, wlanreport, QR code...)' + RESET)
+                print('[' + GREEN + '4' + RESET + '] -', BRIGHT + 'Other (wlanreport, QR code...)' + RESET)
                 inp = prompt()
                 if inp == 0:
                     sys.exit(0)
