@@ -67,7 +67,6 @@ Note: SSIDs are case-sensitive (check for uppercase/lowercase letters).""")
                         try:
                             tree = ET.parse(os.path.join(tmpdir, filename))
                             root = tree.getroot()
-
                             ns = root.tag.split('}', 1)[0] + '}' if '}' in root.tag else ''
                             name_node = root.find(f'.//{ns}name')
                             ssid = name_node.text if name_node is not None else ""
@@ -184,17 +183,19 @@ Bye       \(^_^)/
         except Exception as e:
             print(f"Export error: {e}")
 
-    def import_func(self, path=None):
-        if path:
+    def import_func(self, path):
+        if os.path.isfile(path):
             if ".xml" not in path:
                 path += ".xml"
             subprocess.run(['netsh', 'wlan', 'add', 'profile', f'filename={path}'])
-        else:        
+        elif os.path.isdir(path):        
             try:
-                subprocess.run(['powershell.exe', '$XmlDirectory = "source" ; Get-ChildItem $XmlDirectory | Where-Object {$_.extension -eq ".xml"} | ForEach-Object {netsh wlan add profile filename=($XmlDirectory+"\\"+$_.name)}'])
-                print("The profiles from the 'source' folder were successfully imported.")
+                subprocess.run(['powershell.exe', f'$XmlDirectory = "{path}" ; Get-ChildItem $XmlDirectory | Where-Object {{$_.extension -eq ".xml"}} | ForEach-Object {{netsh wlan add profile filename=($XmlDirectory+"\\"+$_.name)}}'])
+                print(f"The profiles from '{path}' folder were successfully imported.")
             except Exception as e:
                 print("Error:", e)
+        else:
+            print(f"'{path}' is not a valid file or folder.")
     def export_func(self, profile=None):
             if profile:
                 if profile in self.ssid_list:
@@ -224,7 +225,7 @@ Bye       \(^_^)/
                 sys.exit(0)
             if inp == 2:
                 for ssid in self.ssid_list:
-                    subprocess.run(['netsh', 'wlan', 'delete' 'profile', f'"{ssid}"']) 
+                    subprocess.run(['netsh', 'wlan', 'delete', 'profile', f'"{ssid}"']) 
     def generate_qr(self, ssid):
         if ssid in self.ssid_list:
             try:
@@ -241,12 +242,15 @@ Bye       \(^_^)/
             print(interface)
     def remove(self):
         try:
-            subprocess.run(['del', 'output\*'])
-            print("The 'output' directory was successfully cleared.")
+            subprocess.run(['del', 'output\*'], shell=True)
+            if not os.listdir('output'):
+                print(f"The 'output' directory was successfully cleared.")
+            else:
+                print(f"Operation cancelled. Files are still present.")
         except Exception as e:
             print("Error:", e)
     def wlanreport(self):
-        subprocess.run(['netsh', 'wlan', 'show' 'wlanreport'], text=True)
+        subprocess.run(['netsh', 'wlan', 'show', 'wlanreport'], text=True)
     def intensity(self):
         try:
             while True:
@@ -260,7 +264,7 @@ Bye       \(^_^)/
                     if signal >= 80:
                         color = GREEN
                     elif signal >= 50:
-                        color = Fore.YELLOW
+                        color = RESET
                     else:
                         color = RED
                     os.system('cls')
@@ -328,9 +332,9 @@ def main():
     parser.add_argument('-a', '--all', action='store_true', help='Display all saved Wi-Fi profiles along with their passwords.')
     parser.add_argument('-s', '--ssid', dest='ssid', type=str, help='Display the password for a specific Wi-Fi SSID.')
     parser.add_argument('--si', '--simple-interface', action='store_true', dest='simple_interface', help='Use a simplified version of the interactive interface.')
-    parser.add_argument('-e', '--export', dest='export_profiles', nargs='?', const=True, type=str, help='Export a specific profile (or all profiles if no argument is provided) in XML format.')
-    parser.add_argument('-i', '--import', dest='import_profiles', nargs='?', const=True, type=str, help='Import a specific profile (or all profiles if no argument is provided) in XML format.')
-    parser.add_argument('-d', '--delete', dest='delete_profiles', nargs='?', const=True, type=str, help='Delete a specific saved Wi-Fi profile (or all profiles if no argument is provided).')
+    parser.add_argument('-e', '--export', dest='export_profiles', nargs='?', const=True, type=str, help='Export a Wi-Fi profile to XML (or all if no SSID provided).')
+    parser.add_argument('-i', '--import', dest='import_profiles', type=str, help='Import a Wi-Fi profile from a specific XML file, or all profiles from a directory.')
+    parser.add_argument('-d', '--delete', dest='delete_profiles', nargs='?', const=True, type=str, help='Delete a Wi-Fi profile (or all if no SSID provided).')
     parser.add_argument('--qr', dest='qr', type=str, help='Generate a QR code for the selected Wi-Fi.')
     parser.add_argument('--et', '--export-to', dest='export_to', type=str, choices=['txt', 'csv', 'json'], help='Export all Wi-Fi profiles to the specified file format.')
     parser.add_argument('-l', '--list-ssid', action='store_true', dest='ssid_list', help='List all saved SSIDs (without passwords).')
@@ -339,7 +343,7 @@ def main():
     parser.add_argument('-c', '--continue', action='store_true', dest='continue', help='Execute the provided arguments, then enter interactive mode.')
     parser.add_argument('-t', '--table', dest='table', action='store_true', help='Display saved Wi-Fi profiles and passwords in table format.')
     parser.add_argument('--li', '--list-interfaces', action='store_true', dest='list_interfaces', help='List all wireless network interfaces.')
-    parser.add_argument('--nc', '--no-color', action='store_true', dest='no_color', help='Disable colored output.')
+    parser.add_argument('--nc', '--no-color', action='store_true', dest='no_color', help='Disable colored output in the terminal.')
     parser.add_argument('--no-clear', action='store_true', dest='no_clear', help='Disable console clearing between inputs in interactive mode.')
     parser.add_argument('--wr', '--wlanreport', dest='wlanreport', action='store_true', help='Generate a network report.')
     parser.add_argument('--intensity', action='store_true', help='Display the Wi-Fi signal strength.')
@@ -412,17 +416,10 @@ def main():
                             continue
                         if inp == 1:
                             print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                            print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Import ALL the Wi-Fi profiles of the "source" folder' + RESET)
-                            print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Import a Wi-Fi profile' + RESET)
-                            inp = prompt()
-                            if inp == 1:
-                                ncas.import_func()
-                                continue
-                            if inp == 2:
-                                print("Enter the access path to the Wi-Fi profile to import:")
-                                path = input("-> ")
-                                ncas.import_func(path)
-                                continue
+                            print("Enter the path to the Wi-Fi profile file or folder:")
+                            path = input("-> ")
+                            ncas.import_func(path)
+                            continue
                         if inp == 2:
                             print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
                             print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Export all Wi-Fi profiles to the "output" folder' + RESET)
