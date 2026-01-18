@@ -10,7 +10,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 from terminaltables import SingleTable
 from colorama import Fore, Style
-import wifi_qrcode_generator.generator
+import qrcode
+import qrcode.image.svg
 
 VERSION = "v1.2.0"
 BRIGHT = Style.BRIGHT
@@ -24,7 +25,6 @@ c = False
 class WifiManager:
     def __init__(self):
         self.check_dir('output')
-        self.check_dir('source')
         self.ssid_list = []
         self.pwd_list = []
         self.table_data = []
@@ -163,26 +163,25 @@ Bye       \(^_^)/
             return
         try:
             data = list(zip(self.ssid_list, self.pwd_list))
-            path = "output/output." + format_export
+            output_file = "output/output." + format_export
             if format_export == 'txt':
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(self.table_output())
             elif format_export == 'csv':
-                with open(path, 'w', newline='', encoding='utf-8') as f:
+                with open(output_file, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerow(["SSID", "Password"])
                     writer.writerows(data)
             elif format_export == 'json':
                 json_data = [{"SSID": s, "Password": p} for s, p in data]
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(output_file, 'w', encoding='utf-8') as f:
                     json.dump(json_data, f, indent=4, ensure_ascii=False)
             else:
                 print("Please use one of the following formats: txt, csv, json")
                 return
-            print(f"File exported to {path}")
+            print(f"File exported to {output_file}")
         except Exception as e:
             print(f"Export error: {e}")
-
     def import_func(self, path):
         if os.path.isfile(path):
             if ".xml" not in path:
@@ -226,16 +225,39 @@ Bye       \(^_^)/
             if inp == 2:
                 for ssid in self.ssid_list:
                     subprocess.run(['netsh', 'wlan', 'delete', 'profile', f'"{ssid}"']) 
+    def _get_qr_object(self, ssid):
+            if ssid in self.ssid_list:
+                try:
+                    pwd = self.ssid_pwd_dict.get(ssid) or ""
+                    auth_type = 'nopass' if not pwd else 'WPA'
+                    wifi_data = f"WIFI:T:{auth_type};S:{ssid};P:{pwd};;"
+                    qr = qrcode.QRCode()
+                    qr.add_data(wifi_data)
+                    qr.make(fit=True)
+                    return qr
+                except Exception as e:
+                    print("Error:", e)
+                    return None
+            else:
+                self._print_error_ssid()
+                return None
     def generate_qr(self, ssid):
-        if ssid in self.ssid_list:
+        qr = self._get_qr_object(ssid)
+        if qr:
+            print(f"QR Code for {BRIGHT}{ssid}{RESET} :")
+            qr.print_ascii(invert=True)
+    def save_generate_qr(self, ssid):
+        qr = self._get_qr_object(ssid)
+        if qr:
+            print(f"QR Code for {BRIGHT}{ssid}{RESET} :")
+            qr.print_ascii(invert=True)
             try:
-                qr_code = wifi_qrcode_generator.generator.wifi_qrcode(ssid=ssid, hidden=False, authentication_type='WPA', password=self.ssid_pwd_dict[ssid])
-                qr_code.make_image().save(f"output/{ssid}.png")
-                print(f"The QR code for {ssid} was created. Check the 'output' folder.")
+                output_file = f"output/{ssid}.svg"
+                img = qr.make_image(image_factory=qrcode.image.svg.SvgPathImage)
+                img.save(output_file)
+                print(f"Saved in '{output_file}'")
             except Exception as e:
-                print("Error:", e)
-        else:
-            self._print_error_ssid()
+                print(f"Error:", e)
     def print_list_interface(self):
         print("Wireless interface on the system:")
         for interface in self.interface_list:
@@ -335,7 +357,8 @@ def main():
     parser.add_argument('-e', '--export', dest='export_profiles', nargs='?', const=True, type=str, help='Export a Wi-Fi profile to XML (or all if no SSID provided).')
     parser.add_argument('-i', '--import', dest='import_profiles', type=str, help='Import a Wi-Fi profile from a specific XML file, or all profiles from a directory.')
     parser.add_argument('-d', '--delete', dest='delete_profiles', nargs='?', const=True, type=str, help='Delete a Wi-Fi profile (or all if no SSID provided).')
-    parser.add_argument('--qr', dest='qr', type=str, help='Generate a QR code for the selected Wi-Fi.')
+    parser.add_argument('--qr', dest='qr', type=str, help='Display a QR code in the terminal for the selected Wi-Fi.')
+    parser.add_argument('--qr-save', dest='qr_save', type=str, help='Display and save QR to SVG file.')
     parser.add_argument('--et', '--export-to', dest='export_to', type=str, choices=['txt', 'csv', 'json'], help='Export all Wi-Fi profiles to the specified file format.')
     parser.add_argument('-l', '--list-ssid', action='store_true', dest='ssid_list', help='List all saved SSIDs (without passwords).')
     parser.add_argument('-r', '--remove', action='store_true', help='Remove the content of the output directory.')
@@ -366,6 +389,7 @@ def main():
         'wlanreport': (ncas.wlanreport, False),
         'intensity': (ncas.intensity, False),
         'qr': (ncas.generate_qr, True),
+        'qr_save': (ncas.save_generate_qr, True),
         'export_to': (ncas.export_to, True),
         'export_profiles': (ncas.export_func, True), 
         'import_profiles': (ncas.import_func, True),
@@ -383,19 +407,19 @@ def main():
 
     if len(sys.argv) == 1 or c == True:
                 while True:
-                    print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Quit' + RESET)
-                    print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles, and their passwords' + RESET)
-                    print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Manage Wi-Fi profiles' + RESET)
-                    print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'List the wireless network interfaces' + RESET)
-                    print('[' + GREEN + '4' + RESET + '] -', BRIGHT + 'Other (wlanreport, QR code...)' + RESET)
+                    print(f"[{GREEN}0{RESET}] - {BRIGHT}Quit{RESET}")
+                    print(f"[{GREEN}1{RESET}] - {BRIGHT}List Wi-Fi profiles, and their passwords{RESET}")
+                    print(f"[{GREEN}2{RESET}] - {BRIGHT}Manage Wi-Fi profiles{RESET}")
+                    print(f"[{GREEN}3{RESET}] - {BRIGHT}List the wireless network interfaces{RESET}")
+                    print(f"[{GREEN}4{RESET}] - {BRIGHT}Other (wlanreport, QR code...){RESET}")
                     inp = prompt()
                     if inp == 0:
                         sys.exit(0)
                     if inp == 1:
-                        print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                        print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles' + RESET)
-                        print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles and their passwords' + RESET)
-                        print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'List Wi-Fi profiles and their passwords in the form of a table' + RESET)
+                        print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
+                        print(f"[{GREEN}1{RESET}] - {BRIGHT}List Wi-Fi profiles{RESET}")
+                        print(f"[{GREEN}2{RESET}] - {BRIGHT}List Wi-Fi profiles and their passwords{RESET}")
+                        print(f"[{GREEN}3{RESET}] - {BRIGHT}List Wi-Fi profiles and their passwords in the form of a table{RESET}")
                         inp = prompt()
                         if inp == 1:
                             ncas.print_list_ssid()
@@ -407,24 +431,24 @@ def main():
                             ncas.print_table()
                             continue
                     if inp == 2:
-                        print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                        print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Import Wi-Fi profiles' + RESET)
-                        print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Export Wi-Fi profiles' + RESET)
-                        print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'Delete Wi-Fi profiles' + RESET)
+                        print(f"[{GREEN}0{RESET}] - {BRIGHT} Back to the menu{RESET}")
+                        print(f"[{GREEN}1{RESET}] - {BRIGHT} Import Wi-Fi profiles{RESET}")
+                        print(f"[{GREEN}2{RESET}] - {BRIGHT} Export Wi-Fi profiles{RESET}")
+                        print(f"[{GREEN}3{RESET}] - {BRIGHT} Delete Wi-Fi profiles{RESET}")
                         inp = prompt()
                         if inp == 0:
                             continue
                         if inp == 1:
-                            print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
+                            print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
                             print("Enter the path to the Wi-Fi profile file or folder:")
-                            path = input("-> ")
+                            path = input("-> ").strip().strip('"')
                             ncas.import_func(path)
                             continue
                         if inp == 2:
-                            print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                            print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Export all Wi-Fi profiles to the "output" folder' + RESET)
-                            print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Export a Wi-Fi profile to the "output" folder' + RESET)
-                            print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'Export profiles to txt/csv/json' + RESET)
+                            print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
+                            print(f"[{GREEN}1{RESET}] - {BRIGHT}Export all Wi-Fi profiles to the 'output' folder{RESET}")
+                            print(f"[{GREEN}2{RESET}] - {BRIGHT}Export a Wi-Fi profile to the 'output' folder'{RESET}")
+                            print(f"[{GREEN}3{RESET}] - {BRIGHT}Export profiles to txt/csv/json{RESET}")
                             inp = prompt()
                             if inp == 1:
                                 ncas.export_func()
@@ -432,10 +456,10 @@ def main():
                             if inp == 2:
                                 ncas.list_ssid_interactive_interface(ncas.export_func)
                             if inp == 3:
-                                print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                                print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'To .txt' + RESET)
-                                print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'To .csv' + RESET)
-                                print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'To .json' + RESET)
+                                print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
+                                print(f"[{GREEN}1{RESET}] - {BRIGHT}To .txt'{RESET}")
+                                print(f"[{GREEN}2{RESET}] - {BRIGHT}To .csv'{RESET}")
+                                print(f"[{GREEN}3{RESET}] - {BRIGHT}To .json'{RESET}")
                                 inp = prompt()
                                 if inp == 1:
                                     ncas.export_to("txt")
@@ -447,9 +471,9 @@ def main():
                                     ncas.export_to("json")
                                     continue
                         if inp == 3:
-                            print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                            print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Delete ALL Wi-Fi profiles' + RESET)
-                            print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Delete a Wi-Fi profile' + RESET)
+                            print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
+                            print(f"[{GREEN}1{RESET}] - {BRIGHT}Delete ALL Wi-Fi profiles{RESET}")
+                            print(f"[{GREEN}2{RESET}] - {BRIGHT}Delete a Wi-Fi profile{RESET}")
                             inp = prompt()
                             if inp == 1:
                                 ncas.delete_func()
@@ -460,11 +484,11 @@ def main():
                         ncas.print_list_interface()
                         continue
                     if inp == 4:
-                        print('[' + GREEN + '0' + RESET + '] -', BRIGHT + 'Back to the menu' + RESET)
-                        print('[' + GREEN + '1' + RESET + '] -', BRIGHT + 'Delete the content of the output folder' + RESET)
-                        print('[' + GREEN + '2' + RESET + '] -', BRIGHT + 'Generate a report displaying recent wireless session information' + RESET)
-                        print('[' + GREEN + '3' + RESET + '] -', BRIGHT + 'See the intensity of the Wi-Fi signal' + RESET)
-                        print('[' + GREEN + '4' + RESET + '] -', BRIGHT + 'Generate a Wi-Fi QR code' + RESET)
+                        print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
+                        print(f"[{GREEN}1{RESET}] - {BRIGHT}Delete the content of the output folder{RESET}")
+                        print(f"[{GREEN}2{RESET}] - {BRIGHT}Generate a report displaying recent wireless session information{RESET}")
+                        print(f"[{GREEN}3{RESET}] - {BRIGHT}See the intensity of the Wi-Fi signal{RESET}")
+                        print(f"[{GREEN}4{RESET}] - {BRIGHT}Generate a Wi-Fi QR code{RESET}")
                         inp = prompt()
                         if inp == 1:
                             ncas.remove()
@@ -476,7 +500,14 @@ def main():
                             ncas.intensity()
                             continue
                         if inp == 4:
-                            ncas.list_ssid_interactive_interface(ncas.generate_qr)
+                            print(f"[{GREEN}0{RESET}] - {BRIGHT}Back{RESET}")
+                            print(f"[{GREEN}1{RESET}] - {BRIGHT}Display in Terminal{RESET}")
+                            print(f"[{GREEN}2{RESET}] - {BRIGHT}Save as SVG file{RESET}")
+                            qr_choice = prompt()
+                            if qr_choice == 1:
+                                ncas.list_ssid_interactive_interface(ncas.generate_qr)
+                            elif qr_choice == 2:
+                                ncas.list_ssid_interactive_interface(ncas.save_generate_qr)
 
 if __name__ == '__main__':
     main()
