@@ -1,5 +1,2 @@
-output/*
+output/
 *.exe
-fr/*.exe
-config.ini
-fr/config.ini
