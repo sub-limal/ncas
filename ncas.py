@@ -27,7 +27,6 @@ class WifiManager:
         self.check_dir('output')
         self.ssid_list = []
         self.pwd_list = []
-        self.table_data = []
         self.load_ssid_pwd()
         self.interface_list = []
         try:
@@ -82,7 +81,6 @@ Note: SSIDs are case-sensitive (check for uppercase/lowercase letters).""")
                             self.pwd_list.append(pwd)                            
                         except Exception:
                             continue
-            self.table_data.append([self.ssid_list, self.pwd_list])
             self.ssid_pwd_dict = dict(zip(self.ssid_list, self.pwd_list))
     def print_all(self):
         print(self.table_output())
@@ -135,6 +133,33 @@ Note: SSIDs are case-sensitive (check for uppercase/lowercase letters).""")
             except (IndexError, ValueError):
                 print("Please enter a valid number.\n")
                 continue
+    def _generate_table_text(self, ssid_passwd):
+        if not ssid_passwd:
+            return ""
+        max_ssid_len = max([len("SSID")] + [len(s[0]) for s in ssid_passwd]) + 2
+        max_pass_len = max([len("Password")] + [len(s[1]) for s in ssid_passwd]) + 2
+        lines = []
+        header = f"{'SSID':<{max_ssid_len}}{'Password':<{max_pass_len}}"
+        lines.append(header)
+        lines.append('-' * len(header))
+
+        for ssid, pwd in ssid_passwd:
+            lines.append(f"{ssid:<{max_ssid_len}}{pwd:<{max_pass_len}}")
+        return "\n".join(lines)
+    def table_output(self):
+        full_list = list(zip(self.ssid_list, self.pwd_list))
+        return self._generate_table_text(full_list)
+    def print_search_ssid(self, search_term):
+        results = []
+        for ssid in self.ssid_list:
+            if search_term.lower() in ssid.lower():
+                pwd = self.ssid_pwd_dict.get(ssid, "")
+                results.append((ssid, pwd))
+        if not results:
+            print(f"No Wi-Fi profile found containing '{search_term}'.")
+            return
+        print(f"Found {len(results)} matching profile(s):")
+        print(self._generate_table_text(results))
     def simple_interface(self):
         print(f"[{GREEN}0{RESET}] - {BRIGHT}All{RESET}")
         for index, ssid in enumerate(self.ssid_list, 1):
@@ -213,7 +238,7 @@ Bye       \(^_^)/
                     print("Error:", e)
     def delete_func(self, profile=None):
         if profile:
-            subprocess.run([f'netsh', 'wlan', 'delete', 'profile', f'"{profile}"'])
+            subprocess.run([f'netsh', 'wlan', 'delete', 'profile', f'{profile}'])
         else:
             print(f"You are about to {RED}PERMANENTLY DELETE ALL{RESET} Wi-Fi profiles.")
             print("You can restore them later if you have a backup. Do you want to continue?\n")
@@ -224,7 +249,7 @@ Bye       \(^_^)/
                 sys.exit(0)
             if inp == 2:
                 for ssid in self.ssid_list:
-                    subprocess.run(['netsh', 'wlan', 'delete', 'profile', f'"{ssid}"']) 
+                    subprocess.run(['netsh', 'wlan', 'delete', 'profile', f'{ssid}']) 
     def _get_qr_object(self, ssid):
             if ssid in self.ssid_list:
                 try:
@@ -352,7 +377,8 @@ def banner():
 def main():
     parser = argparse.ArgumentParser(description=f"Netsh Command Automation Script {VERSION}")
     parser.add_argument('-a', '--all', action='store_true', help='Display all saved Wi-Fi profiles along with their passwords.')
-    parser.add_argument('-s', '--ssid', dest='ssid', type=str, help='Display the password for a specific Wi-Fi SSID.')
+    parser.add_argument('--ssid', dest='ssid', type=str, help='Display the password for a specific Wi-Fi SSID.')
+    parser.add_argument('-s', '--search', dest='search_ssid', type=str, help='Search and display all Wi-Fi profiles (and passwords) containing this keyword in their SSID.')
     parser.add_argument('--si', '--simple-interface', action='store_true', dest='simple_interface', help='Use a simplified version of the interactive interface.')
     parser.add_argument('-e', '--export', dest='export_profiles', nargs='?', const=True, type=str, help='Export a Wi-Fi profile to XML (or all if no SSID provided).')
     parser.add_argument('-i', '--import', dest='import_profiles', type=str, help='Import a Wi-Fi profile from a specific XML file, or all profiles from a directory.')
@@ -379,6 +405,7 @@ def main():
         'no_clear': (no_clear, False),
         'banner': (banner, False),
         'ssid': (ncas.print_ssid_passwd, True),
+        'search_ssid': (ncas.print_search_ssid, True),
         'ssid_list': (ncas.print_list_ssid, False),
         'all': (ncas.print_all, False),
         'continue': (ncas.continue_func, False),
@@ -417,9 +444,10 @@ def main():
                         sys.exit(0)
                     if inp == 1:
                         print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
-                        print(f"[{GREEN}1{RESET}] - {BRIGHT}List Wi-Fi profiles{RESET}")
-                        print(f"[{GREEN}2{RESET}] - {BRIGHT}List Wi-Fi profiles and their passwords{RESET}")
-                        print(f"[{GREEN}3{RESET}] - {BRIGHT}List Wi-Fi profiles and their passwords in the form of a table{RESET}")
+                        print(f"[{GREEN}1{RESET}] - {BRIGHT}List SSIDs only{RESET}")
+                        print(f"[{GREEN}2{RESET}] - {BRIGHT}Show passwords (List view)  {RESET}")
+                        print(f"[{GREEN}3{RESET}] - {BRIGHT}Show passwords (Table view){RESET}")
+                        print(f"[{GREEN}4{RESET}] - {BRIGHT}Search profiles{RESET}")
                         inp = prompt()
                         if inp == 1:
                             ncas.print_list_ssid()
@@ -429,6 +457,10 @@ def main():
                             continue
                         if inp == 3:
                             ncas.print_table()
+                            continue
+                        if inp == 4:
+                            search = input("Search -> ")
+                            ncas.print_search_ssid(search)
                             continue
                     if inp == 2:
                         print(f"[{GREEN}0{RESET}] - {BRIGHT} Back to the menu{RESET}")
@@ -486,7 +518,7 @@ def main():
                     if inp == 4:
                         print(f"[{GREEN}0{RESET}] - {BRIGHT}Back to the menu{RESET}")
                         print(f"[{GREEN}1{RESET}] - {BRIGHT}Delete the content of the output folder{RESET}")
-                        print(f"[{GREEN}2{RESET}] - {BRIGHT}Generate a report displaying recent wireless session information{RESET}")
+                        print(f"[{GREEN}2{RESET}] - {BRIGHT}Generate a wlanreport{RESET}")
                         print(f"[{GREEN}3{RESET}] - {BRIGHT}See the intensity of the Wi-Fi signal{RESET}")
                         print(f"[{GREEN}4{RESET}] - {BRIGHT}Generate a Wi-Fi QR code{RESET}")
                         inp = prompt()

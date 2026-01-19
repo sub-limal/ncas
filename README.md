@@ -5,9 +5,7 @@
 
 **NCAS** is a comprehensive Python tool designed to manage, retrieve, and share saved Wi-Fi profiles on Windows. It acts as a powerful wrapper around the native `netsh` command, offering both a CLI (Command Line Interface) and a user-friendly interactive menu.
 
-<p align="center">
-<img src="image/Animation.gif" alt ="Demo Animation" width=800>
-</p>
+![Demo](https://github.com/user-attachments/assets/1d295f74-267a-4591-b37d-5aff2f70fb72)
 
 ## 🚀 Features
 
@@ -64,10 +62,11 @@ ncas
 | Argument | Description |
 | :--- | :--- |
 | `-a`, `--all` | Display all saved Wi-Fi profiles along with their passwords. |
-| `-s [SSID]`, `--ssid [SSID]` | Display the password for a specific Wi-Fi SSID. |
+| `--ssid [SSID]` | Display the password for a specific Wi-Fi SSID. |
+| `-s [SSID]`, `--search [SSID]` | Search and display all Wi-Fi profiles (and passwords) containing this keyword in their SSID. | 
 | `--si`, `--simple-interface` | Use a simplified version of the interactive interface. |
 | `-e [SSID]`, `--export [SSID]` | Export a specific profile (or all if no SSID provided) in XML. |
-| `-i [File]`, `--import [File]` | Import a specific profile (or all if no file provided) in XML. |
+| `-i [FILE]`, `--import [FILE]` | Import a specific profile (or all if no file provided) in XML. |
 | `-d [SSID]`, `--delete [SSID]` | Delete a specific Wi-Fi profile (or all if no SSID provided). |
 | `--qr [SSID]` | Display a QR code in the terminal for the selected Wi-Fi. |
 | `--qr-save [SSID]` | Display and save QR to SVG file. |
@@ -90,7 +89,7 @@ ncas
 ncas -a
 
 # Get the password for "MyHomeWifi"
-ncas -s "MyHomeWifi"
+ncas --ssid "MyHomeWifi"
 
 # Generate a QR Code for "OtherNetwork"
 ncas --qr "OtherNetwork"
@@ -98,8 +97,8 @@ ncas --qr "OtherNetwork"
 # Export all Wi-Fi profiles to a txt file
 ncas --export-to txt
 
-# Run the simplified interface
-ncas --simple-interface
+# Search for all SSIDs matching a keyword and display their passwords.
+ncas -s "box"
 ```
 
 ## ✅ Compatibility
